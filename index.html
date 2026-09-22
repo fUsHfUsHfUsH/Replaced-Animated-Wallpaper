@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>REPLACED - Main Menu</title>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body, html { width: 100%; height: 100%; overflow: hidden; background: #06121c; font-family: 'Press Start 2P', monospace; }
+
+  .menu-bg {
+    position: fixed; inset: 0;
+    /* Full animated gif */
+    background-image: url('background.gif');
+    background-size: 100% 100%;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-color: #06121c;
+  }
+  /* Dark overlay + scanlines for CRT pixel feel */
+  .menu-bg::after {
+    content: '';
+    position: absolute; inset: 0;
+    background: linear-gradient(rgba(0,0,0,0.15), rgba(0,0,0,0.25));
+    pointer-events: none;
+  }
+  .scanlines {
+    position: fixed; inset: 0; pointer-events: none; z-index: 5; opacity: 0.15;
+    background: repeating-linear-gradient(0deg, transparent 0 2px, black 2px 4px);
+  }
+
+  .menu-container {
+    position: relative; z-index: 10;
+    width: 100%; height: 100%;
+  }
+
+  /* Hotspots sit exactly over the gif's own PLAY / OPTIONS / CREDITS */
+  .buttons {
+    position: absolute;
+    left: 42.5%; top: 34.8%;
+    width: 5.8%; height: 10.5%;
+    display: flex; flex-direction: column;
+    background: transparent;
+    padding: 0; margin: 0; gap: 2%;
+    border: none;
+  }
+  .menu-btn {
+    font-family: inherit;
+    flex: 1;
+    width: 100%;
+    font-size: 0.75vw;
+    color: transparent;
+    background: transparent;
+    border: none;
+    text-align: left;
+    cursor: pointer;
+    padding: 1% 6%;
+    letter-spacing: 1px;
+    transition: all 0.12s steps(2);
+    position: relative;
+    /* transparent idle = gif's original perfect font shows through */
+  }
+  /* Hover state - this is what changes on hover */
+  .menu-btn:hover, .menu-btn.active {
+    color: #ffffff;
+    background: #e64a1a;
+    box-shadow: 0 0 15px #ff6a1a, 0 0 30px rgba(255,90,26,0.5);
+    width: 135%;
+    transform-origin: left center;
+    transform: scale(1.05) translateX(6px);
+    text-shadow: 2px 2px 0 #000;
+    outline: none;
+  }
+  .menu-btn:hover::before, .menu-btn.active::before {
+    content: '▶';
+    position: absolute; left: -22px;
+    color: #fff;
+  }
+  .menu-btn:active { transform: scale(1.02) translateX(8px); }
+
+  #screen-msg {
+    position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
+    color: #7dd7ff; font-size: 12px; z-index: 10;
+    background: rgba(0,0,0,0.7); padding: 10px 20px; display: none;
+  }
+
+  /* Credits video overlay - fullscreen, returns to wallpaper on ESC */
+  #credits-overlay {
+    position: fixed; inset: 0; z-index: 50;
+    background: #000;
+    display: none;
+    align-items: center; justify-content: center;
+    flex-direction: column;
+  }
+  #credits-overlay.open { display: flex; }
+  /* Scrolling credits - black bg, orange headings, white names */
+  #credits-scroll {
+    position: absolute; inset: 0; overflow: hidden; background: #000;
+  }
+  #credits-track {
+    position: absolute; top: 0; left: 0; right: 0;
+    text-align: center; padding: 0 8vw;
+    animation: cr-scroll 200s linear infinite;
+    will-change: transform;
+  }
+  @keyframes cr-scroll {
+    0% { transform: translateY(100vh); }
+    100% { transform: translateY(-100%); }
+  }
+  .cr-title {
+    color: #e64a1a; font-size: 30px; letter-spacing: 6px;
+    text-shadow: 3px 3px 0 #5a1a00, 0 0 20px rgba(255,106,26,0.6);
+    margin: 0 0 60px;
+  }
+  .cr-head {
+    color: #e64a1a; font-size: 16px; letter-spacing: 2px;
+    text-shadow: 2px 2px 0 #5a1a00;
+    margin: 56px 0 28px;
+  }
+  .cr-group { margin: 0 0 30px; }
+  .cr-role { color: #e64a1a; font-size: 12px; letter-spacing: 1px; margin-bottom: 12px; }
+  .cr-names { color: #fff; font-size: 10px; line-height: 2.2; }
+  .cr-sub { color: #e64a1a; font-size: 11px; letter-spacing: 1px; margin-bottom: 12px; }
+  .cr-body { color: #fff; font-size: 8px; line-height: 2.2; }
+  #credits-back {
+    position: absolute; bottom: 4%; right: 3%;
+    color: #fff; font-size: 12px; letter-spacing: 1px;
+    background: #000; padding: 10px 18px;
+    border: 1px solid rgba(255,255,255,0.3);
+    cursor: pointer; z-index: 51;
+  }
+  #credits-back:hover { background: #e64a1a; }
+
+  /* Pixel-art music controls - middle of top-right quadrant */
+  #music-controls {
+    position: fixed; top: 25%; left: 76%; transform: translate(-50%, -50%);
+    z-index: 20;
+    background: #050a0e;
+    border: 4px solid #e64a1a;
+    box-shadow: 0 0 18px rgba(224,26,26,0.6), inset 0 0 12px rgba(224,26,26,0.3);
+    padding: 16px 18px;
+    font-size: 10px; color: #e64a1a; letter-spacing: 1px;
+    text-align: center;
+  }
+  #mus-title { margin-bottom: 12px; text-shadow: 2px 2px 0 #5a0000; }
+  #mus-status { margin-bottom: 10px; font-size: 8px; color: #7dd7ff; }
+  #mus-track { margin-top: 8px; font-size: 8px; color: #fff; max-width: 300px; line-height: 2.2; min-height: 16px; white-space: pre-line; }
+  #mus-track .mus-song { font-size: 13px; color: #fff; line-height: 1.6; text-shadow: 2px 2px 0 #5a0000; }
+  #mus-track .mus-artist { font-size: 8px; color: #7dd7ff; line-height: 2.2; }
+  .mus-row { display: flex; gap: 10px; align-items: center; justify-content: center; margin-bottom: 10px; }
+  .mus-btn {
+    font-family: inherit; font-size: 10px;
+    color: #e64a1a; background: transparent; border: none;
+    cursor: pointer; padding: 6px 8px; letter-spacing: 1px;
+    transition: all 0.12s steps(2); position: relative;
+  }
+  .mus-btn:hover, .mus-btn.active {
+    color: #fff; background: #e64a1a;
+    box-shadow: 0 0 15px #ff6a1a, 0 0 30px rgba(255,90,26,0.5);
+    transform: scale(1.08) translateX(4px);
+    text-shadow: 2px 2px 0 #000; outline: none;
+  }
+  .mus-btn:hover::before { content: '▶'; position: absolute; left: -14px; color: #fff; }
+  #mus-vol {
+    -webkit-appearance: none; appearance: none;
+    width: 140px; height: 8px; background: #1a0505;
+    border: 2px solid #e64a1a; outline: none; cursor: pointer;
+  }
+  #mus-vol::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none;
+    width: 12px; height: 16px; background: #e64a1a;
+    border: 2px solid #fff; box-shadow: 0 0 8px #ff6a1a; cursor: pointer;
+  }
+  #mus-vol::-moz-range-thumb {
+    width: 12px; height: 16px; background: #e64a1a;
+    border: 2px solid #fff; border-radius: 0; cursor: pointer;
+  }
+  #spotify-embed { width: 300px; height: 152px; border: none; margin-top: 6px; image-rendering: pixelated; }
+
+  /* Brightness dimmer overlay */
+  #dim-overlay {
+    position: fixed; inset: 0; background: #000; opacity: 0;
+    pointer-events: none; z-index: 30;
+  }
+
+  /* OPTIONS + POWER boxes - wallpaper theme */
+  #options-overlay, #power-overlay {
+    position: fixed; inset: 0; z-index: 60;
+    background: rgba(0,0,0,0.6);
+    display: none; align-items: center; justify-content: center;
+  }
+  #options-overlay.open, #power-overlay.open { display: flex; }
+  #options-box {
+    background: #050a0e; border: 4px solid #e64a1a;
+    box-shadow: 0 0 18px rgba(230,74,26,0.6), inset 0 0 12px rgba(230,74,26,0.3);
+    padding: 22px 28px; text-align: center; color: #e64a1a;
+    font-size: 10px; letter-spacing: 1px; min-width: 320px;
+  }
+  #power-box {
+    background: #050a0e; border: 4px solid #e64a1a;
+    box-shadow: 0 0 18px rgba(230,74,26,0.6), inset 0 0 12px rgba(230,74,26,0.3);
+    padding: 18px 22px; text-align: center; color: #e64a1a;
+    font-size: 10px; letter-spacing: 1px; min-width: 240px;
+  }
+  .opt-title { margin-bottom: 16px; text-shadow: 2px 2px 0 #5a1a00; }
+  .opt-label { margin: 12px 0 6px; }
+  .opt-status { margin-top: 10px; font-size: 8px; color: #7dd7ff; min-height: 12px; }
+  .opt-btn {
+    font-family: inherit; font-size: 10px;
+    color: #e64a1a; background: transparent; border: none;
+    cursor: pointer; padding: 8px 10px; letter-spacing: 1px;
+    transition: all 0.12s steps(2); position: relative;
+    display: block; width: 100%; text-align: center;
+  }
+  .opt-btn:hover {
+    color: #fff; background: #e64a1a;
+    box-shadow: 0 0 15px #ff6a1a, 0 0 30px rgba(255,90,26,0.5);
+    transform: scale(1.05);
+    text-shadow: 2px 2px 0 #000; outline: none;
+  }
+  .opt-btn:hover::before { content: '▶'; position: absolute; left: 6px; color: #fff; }
+  .opt-btn.armed {
+    color: #fff; background: #e64a1a;
+    box-shadow: 0 0 15px #ff6a1a, 0 0 30px rgba(255,90,26,0.5);
+    text-shadow: 2px 2px 0 #000;
+  }
+  .opt-slider {
+    -webkit-appearance: none; appearance: none;
+    width: 220px; height: 8px; background: #1a0505;
+    border: 2px solid #e64a1a; outline: none; cursor: pointer;
+  }
+  .opt-slider::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none;
+    width: 12px; height: 16px; background: #e64a1a;
+    border: 2px solid #fff; box-shadow: 0 0 8px #ff6a1a; cursor: pointer;
+  }
+  .opt-slider::-moz-range-thumb {
+    width: 12px; height: 16px; background: #e64a1a;
+    border: 2px solid #fff; border-radius: 0; cursor: pointer;
+  }
+  .opt-exit {
+    margin-top: 14px; font-size: 8px; color: #fff;
+    background: #000; padding: 8px 14px; display: inline-block;
+    border: 1px solid rgba(255,255,255,0.3); cursor: pointer;
+  }
+  .opt-exit:hover { background: #e64a1a; }
+</style>
+</head>
+<body>
+<div class="menu-bg"></div>
+<div class="scanlines"></div>
+
+<div class="menu-container">
+  <nav class="buttons">
+    <button class="menu-btn" data-action="play">PLAY</button>
+    <button class="menu-btn" data-action="options">OPTIONS</button>
+    <button class="menu-btn" data-action="credits">CREDITS</button>
+  </nav>
+</div>
+
+<div id="screen-msg"></div>
+<div id="dim-overlay"></div>
+
+<div id="credits-overlay">
+  <div id="credits-scroll"><div id="credits-track">LOADING CREDITS...</div></div>
+  <div id="credits-back">ESC - BACK</div>
+</div>
+
+<div id="options-overlay">
+  <div id="options-box">
+    <div class="opt-title">OPTIONS</div>
+    <div class="opt-label">BRIGHTNESS <span id="opt-bright-val">-</span></div>
+    <input id="opt-bright" class="opt-slider" type="range" min="5" max="100" value="100">
+    <div class="opt-label">MASTER VOLUME <span id="opt-vol-val">-</span></div>
+    <input id="opt-vol" class="opt-slider" type="range" min="0" max="100" value="20">
+    <button id="opt-power" class="opt-btn" style="margin-top:12px">POWER OPTIONS</button>
+    <div id="opt-status" class="opt-status"></div>
+    <div id="opt-exit" class="opt-exit">ESC - EXIT</div>
+  </div>
+</div>
+
+<div id="power-overlay">
+  <div id="power-box">
+    <div class="opt-title">POWER</div>
+    <button class="opt-btn" data-power="sleep">SLEEP</button>
+    <button class="opt-btn" data-power="restart">RESTART</button>
+    <button class="opt-btn" data-power="shutdown">SHUT DOWN</button>
+    <button class="opt-btn" data-power="signout">SIGN OUT</button>
+    <div id="power-status" class="opt-status"></div>
+    <div id="power-exit" class="opt-exit">ESC - EXIT</div>
+  </div>
+</div>
+
+<!-- Music controls (pixel-art, centered) + Spotify Web Playback SDK: REPLACED Original Soundtrack -->
+<div id="music-controls">
+  <div id="mus-title">REPLACED OST</div>
+  <div id="mus-status">NOT LOGGED IN</div>
+  <div class="mus-row">
+    <button id="mus-prev" class="mus-btn">⏮ PREV</button>
+    <button id="mus-toggle" class="mus-btn">▶ PLAY</button>
+    <button id="mus-next" class="mus-btn">NEXT ⏭</button>
+  </div>
+  <div class="mus-row"><span>VOL</span><input id="mus-vol" type="range" min="0" max="100" value="80"></div>
+  <div class="mus-row"><button id="mus-login" class="mus-btn">LOGIN SPOTIFY</button></div>
+  <div class="mus-row"><button id="mus-album" class="mus-btn">REPLACED OST</button></div>
+  <div id="mus-track">Nothing playing currently</div>
+</div>
+
+<script>
+  const buttons = document.querySelectorAll('.menu-btn');
+  const msg = document.getElementById('screen-msg');
+
+  // Hover sound (optional tiny beep via WebAudio)
+  function hoverBeep() {
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.connect(g); g.connect(ctx.destination);
+      o.type = 'square'; o.frequency.value = 800;
+      g.gain.value = 0.03;
+      o.start(); o.stop(ctx.currentTime + 0.06);
+    } catch(e) {}
+  }
+
+  buttons.forEach(btn => {
+    btn.addEventListener('mouseenter', () => {
+      buttons.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      hoverBeep();
+    });
+    btn.addEventListener('mouseleave', () => btn.classList.remove('active'));
+    btn.addEventListener('click', () => {
+      const a = btn.dataset.action;
+      if (a === 'play') {
+        // REPLACED Steam App ID 1663850 - fired via hidden iframe so the page (and music) never navigates
+        msg.style.display = 'block';
+        msg.innerHTML = '▶ LAUNCHING REPLACED VIA STEAM... <a href="https://store.steampowered.com/app/1663850/REPLACED" target="_blank" style="color:#fff">store page</a>';
+        const steamFrame = document.createElement('iframe');
+        steamFrame.style.display = 'none';
+        steamFrame.src = 'steam://rungameid/1663850';
+        document.body.appendChild(steamFrame);
+        setTimeout(() => steamFrame.remove(), 5000);
+        setTimeout(() => { msg.style.display = 'none'; }, 4000);
+        return;
+      }
+      if (a === 'credits') {
+        openCredits();
+        return;
+      }
+      msg.style.display = 'block';
+      msg.textContent = '⚙ OPENING OPTIONS...';
+      setTimeout(() => msg.style.display = 'none', 800);
+      openOptions();
+    });
+  });
+
+  // OPTIONS box: real device brightness + master volume via local helper
+  // (browsers can't touch the OS - helper system_helper.py on 127.0.0.1:8001 does it).
+  const HELPER = 'http://127.0.0.1:8001';
+  const optionsOverlay = document.getElementById('options-overlay');
+  const powerOverlay = document.getElementById('power-overlay');
+  const dimOverlay = document.getElementById('dim-overlay');
+  const optBright = document.getElementById('opt-bright');
+  const optVol = document.getElementById('opt-vol');
+  const optBrightVal = document.getElementById('opt-bright-val');
+  const optVolVal = document.getElementById('opt-vol-val');
+  const optStatus = document.getElementById('opt-status');
+  const powerStatus = document.getElementById('power-status');
+  function applyDim(level) { dimOverlay.style.opacity = String(((100 - level) / 100 * 0.7).toFixed(2)); }
+  async function helperGet(path) {
+    const c = new AbortController();
+    const t = setTimeout(() => c.abort(), 2500);
+    try {
+      const r = await fetch(HELPER + path, { signal: c.signal });
+      return await r.json();
+    } finally { clearTimeout(t); }
+  }
+  async function helperPost(path, body) {
+    const c = new AbortController();
+    const t = setTimeout(() => c.abort(), 4000);
+    try {
+      const r = await fetch(HELPER + path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: c.signal });
+      return await r.json();
+    } finally { clearTimeout(t); }
+  }
+  async function openOptions() {
+    optionsOverlay.classList.add('open');
+    optStatus.textContent = '';
+    try {
+      const s = await helperGet('/status');
+      if (s.brightness != null) { optBright.value = s.brightness; optBrightVal.textContent = s.brightness; applyDim(s.brightness); }
+      optVol.value = s.volume; optVolVal.textContent = s.volume;
+    } catch(e) {
+      optStatus.textContent = 'HELPER OFFLINE - RUN system_helper.py';
+    }
+  }
+  function closeOptions() {
+    optionsOverlay.classList.remove('open');
+    dimOverlay.style.opacity = '0'; // preview overlay clears on exit - real panel brightness stays as set
+  }
+  function openPower() { powerStatus.textContent = ''; powerOverlay.classList.add('open'); }
+  function closePower() { powerOverlay.classList.remove('open'); }
+  let brightTimer = null, volTimer2 = null;
+  optBright.addEventListener('input', () => {
+    const v = parseInt(optBright.value, 10);
+    optBrightVal.textContent = v;
+    applyDim(v); // instant visual feedback + real panel brightness below
+    clearTimeout(brightTimer);
+    brightTimer = setTimeout(async () => {
+      try { await helperPost('/brightness', { level: v }); }
+      catch(e) { optStatus.textContent = 'HELPER OFFLINE - RUN system_helper.py'; }
+    }, 300);
+  });
+  optVol.addEventListener('input', () => {
+    const v = parseInt(optVol.value, 10);
+    optVolVal.textContent = v;
+    clearTimeout(volTimer2);
+    volTimer2 = setTimeout(async () => {
+      try { await helperPost('/volume', { level: v }); }
+      catch(e) { optStatus.textContent = 'HELPER OFFLINE - RUN system_helper.py'; }
+    }, 300);
+  });
+  document.getElementById('opt-power').addEventListener('click', openPower);
+  document.getElementById('opt-exit').addEventListener('click', closeOptions);
+  document.getElementById('power-exit').addEventListener('click', closePower);
+  document.querySelectorAll('[data-power]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const action = btn.dataset.power;
+      const label = btn.textContent;
+      if (!btn.classList.contains('armed')) {
+        // first click: ask for confirmation
+        document.querySelectorAll('[data-power]').forEach(b => { b.classList.remove('armed'); });
+        btn.classList.add('armed');
+        btn.dataset.label = label;
+        btn.textContent = 'ARE YOU SURE?';
+        powerStatus.textContent = 'ARE YOU SURE YOU WANT TO ' + label + '? CLICK AGAIN';
+        clearTimeout(btn._disarm);
+        btn._disarm = setTimeout(() => {
+          btn.classList.remove('armed');
+          btn.textContent = btn.dataset.label;
+          if (powerStatus.textContent.startsWith('ARE YOU SURE')) powerStatus.textContent = '';
+        }, 5000);
+        return;
+      }
+      // second click: confirmed - fire it
+      clearTimeout(btn._disarm);
+      btn.classList.remove('armed');
+      btn.textContent = btn.dataset.label;
+      powerStatus.textContent = label + ' IN 10s - RUN shutdown /a TO CANCEL';
+      try {
+        const r = await helperPost('/power', { action });
+        if (r.error) powerStatus.textContent = r.error;
+      } catch(e) { powerStatus.textContent = 'HELPER OFFLINE - RUN system_helper.py'; }
+    });
+  });
+
+  // Credits screen: scrolling text from credits.html on black, ESC returns to wallpaper
+  // Music keeps playing unless you press the pixel pause button.
+  const overlay = document.getElementById('credits-overlay');
+  const creditsTrack = document.getElementById('credits-track');
+  const backBtn = document.getElementById('credits-back');
+  fetch('credits.html').then(r => r.text()).then(t => { creditsTrack.innerHTML = t; })
+    .catch(() => { creditsTrack.textContent = 'COULD NOT LOAD CREDITS'; });
+  function openCredits() {
+    overlay.classList.add('open');
+    // restart the scroll from the top each time
+    creditsTrack.style.animation = 'none';
+    void creditsTrack.offsetWidth;
+    creditsTrack.style.animation = '';
+  }
+  function closeCredits() {
+    overlay.classList.remove('open'); // back to main wallpaper
+  }
+  backBtn.addEventListener('click', closeCredits);
+
+  // Spotify remote control (Premium). Pixel buttons drive your Spotify app directly -
+  // no second browser player, so no device conflict/muting when the app is open.
+  // Redirect URI in dashboard must be EXACTLY: http://127.0.0.1:8000/
+  const SPOTIFY_CLIENT_ID = "4f2e3924c0d6481791b31aa0dd7d62eb";
+  const SPOTIFY_REDIRECT_URI = "http://127.0.0.1:8000/";
+  const SPOTIFY_ALBUM_URI = "spotify:album:3yOMgA3rC1PjS9Df57oEsa";
+  const SPOTIFY_SCOPES = "streaming user-read-email user-read-private user-read-playback-state user-modify-playback-state";
+  const musToggle = document.getElementById('mus-toggle');
+  const musPrev = document.getElementById('mus-prev');
+  const musNext = document.getElementById('mus-next');
+  const musVol = document.getElementById('mus-vol');
+  const musLogin = document.getElementById('mus-login');
+  const musStatus = document.getElementById('mus-status');
+  const musTrack = document.getElementById('mus-track');
+  let spToken = localStorage.getItem('sp_access_token') || null;
+  let spTokenExpiry = parseInt(localStorage.getItem('sp_expiry') || '0', 10);
+  let spDeviceId = null, spDeviceName = '', spPollTimer = null;
+  function setStatus(t) { musStatus.textContent = t; }
+  function setToggle(playing) { musToggle.textContent = playing ? '⏸ PAUSE' : '▶ PLAY'; }
+  function renderTrack(item, playing) {
+    if (!item) { musTrack.textContent = 'Nothing playing currently'; return; }
+    musTrack.innerHTML = '';
+    const song = document.createElement('div');
+    song.className = 'mus-song';
+    song.textContent = item.name;
+    const artist = document.createElement('div');
+    artist.className = 'mus-artist';
+    artist.textContent = (item.artists || []).map(a => a.name).join(', ');
+    musTrack.appendChild(song);
+    musTrack.appendChild(artist);
+    setToggle(!!playing);
+  }
+  function b64url(buf) { return btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''); }
+  async function pkceChallenge(v) { const d = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(v)); return b64url(d); }
+  async function spotifyLogin() {
+    const verifier = [...crypto.getRandomValues(new Uint8Array(32))].map(b => ('0'+b.toString(16)).slice(-2)).join('');
+    const challenge = await pkceChallenge(verifier);
+    localStorage.setItem('sp_verifier', verifier);
+    const u = new URL('https://accounts.spotify.com/authorize');
+    u.searchParams.set('client_id', SPOTIFY_CLIENT_ID);
+    u.searchParams.set('response_type', 'code');
+    u.searchParams.set('redirect_uri', SPOTIFY_REDIRECT_URI);
+    u.searchParams.set('scope', SPOTIFY_SCOPES);
+    u.searchParams.set('code_challenge_method', 'S256');
+    u.searchParams.set('code_challenge', challenge);
+    window.location.href = u.toString();
+  }
+  async function exchangeCode(code) {
+    const verifier = localStorage.getItem('sp_verifier') || '';
+    const body = new URLSearchParams({ client_id: SPOTIFY_CLIENT_ID, grant_type: 'authorization_code', code, redirect_uri: SPOTIFY_REDIRECT_URI, code_verifier: verifier });
+    const r = await fetch('https://accounts.spotify.com/api/token', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body });
+    const j = await r.json();
+    if (!j.access_token) { setStatus('LOGIN FAILED'); return; }
+    spToken = j.access_token;
+    spTokenExpiry = Date.now() + (j.expires_in * 1000);
+    localStorage.setItem('sp_access_token', spToken);
+    localStorage.setItem('sp_expiry', String(spTokenExpiry));
+    if (j.refresh_token) localStorage.setItem('sp_refresh_token', j.refresh_token);
+    window.history.replaceState({}, '', SPOTIFY_REDIRECT_URI);
+    await afterLogin();
+  }
+  async function refreshToken() {
+    const rt = localStorage.getItem('sp_refresh_token');
+    if (!rt) return false;
+    const body = new URLSearchParams({ client_id: SPOTIFY_CLIENT_ID, grant_type: 'refresh_token', refresh_token: rt });
+    const r = await fetch('https://accounts.spotify.com/api/token', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body });
+    const j = await r.json();
+    if (!j.access_token) return false;
+    spToken = j.access_token;
+    spTokenExpiry = Date.now() + (j.expires_in * 1000);
+    localStorage.setItem('sp_access_token', spToken);
+    localStorage.setItem('sp_expiry', String(spTokenExpiry));
+    if (j.refresh_token) localStorage.setItem('sp_refresh_token', j.refresh_token);
+    return true;
+  }
+  async function ensureToken() {
+    if (spToken && Date.now() < spTokenExpiry - 60000) return spToken;
+    if (await refreshToken()) return spToken;
+    return null;
+  }
+  async function spApi(path, method, body, query) {
+    const tok = await ensureToken();
+    if (!tok) { setStatus('LOGIN AGAIN'); return null; }
+    let url = 'https://api.spotify.com/v1' + path;
+    if (query) url += '?' + new URLSearchParams(query).toString();
+    const r = await fetch(url, { method: method || 'GET', headers: { 'Authorization': 'Bearer ' + tok, 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
+    if (r.status === 204) return { empty: true };
+    if (!r.ok) return { error: r.status };
+    try { return await r.json(); } catch(e) { return { empty: true }; }
+  }
+  async function refreshDevices() {
+    const j = await spApi('/me/player/devices');
+    if (!j || !j.devices) return;
+    const active = j.devices.find(d => d.is_active) || j.devices.find(d => d.type === 'Computer') || j.devices[0];
+    if (active) {
+      spDeviceId = active.id; spDeviceName = active.name;
+      setStatus(active.is_active ? ('PLAYING ON: ' + active.name.toUpperCase()) : ('READY - ' + active.name.toUpperCase()));
+    } else {
+      spDeviceId = null;
+      setStatus('NO DEVICE - OPEN SPOTIFY APP');
+    }
+  }
+  async function playAlbum() {
+    const q = spDeviceId ? { device_id: spDeviceId } : undefined;
+    let r = await spApi('/me/player/play', 'PUT', { context_uri: SPOTIFY_ALBUM_URI }, q);
+    if (r && r.error === 404 && spDeviceId) {
+      // nothing active on that device yet - transfer then play
+      await spApi('/me/player', 'PUT', { device_ids: [spDeviceId], play: false });
+      r = await spApi('/me/player/play', 'PUT', { context_uri: SPOTIFY_ALBUM_URI }, q);
+    }
+    if (r && r.error === 404) setStatus('NO DEVICE - OPEN SPOTIFY APP');
+    else pollNow();
+  }
+  async function pollNow() {
+    const j = await spApi('/me/player');
+    if (!j || j.error || j.empty) {
+      if (j && j.error === 404) { setStatus('NO DEVICE - OPEN SPOTIFY APP'); }
+      musTrack.textContent = 'Nothing playing currently';
+      setToggle(false);
+      return;
+    }
+    if (j.device) { spDeviceId = j.device.id; spDeviceName = j.device.name; }
+    renderTrack(j.item, j.is_playing);
+  }
+  function startPolling() {
+    if (spPollTimer) return;
+    spPollTimer = setInterval(pollNow, 5000); // display only - never pauses audio
+  }
+  async function afterLogin() {
+    await refreshDevices();
+    await pollNow();
+    startPolling();
+  }
+  musLogin.addEventListener('click', spotifyLogin);
+  const musAlbum = document.getElementById('mus-album');
+  musAlbum.addEventListener('click', async () => {
+    if (!await ensureToken()) { spotifyLogin(); return; }
+    await playAlbum();
+  });
+  musToggle.addEventListener('click', async () => {
+    if (!await ensureToken()) { spotifyLogin(); return; }
+    const j = await spApi('/me/player');
+    if (!j || j.error || j.empty || !j.item) { await playAlbum(); return; }
+    const q = spDeviceId ? { device_id: spDeviceId } : undefined;
+    if (j.is_playing) await spApi('/me/player/pause', 'PUT', undefined, q);
+    else await spApi('/me/player/play', 'PUT', undefined, q);
+    pollNow();
+  });
+  musPrev.addEventListener('click', async () => { const q = spDeviceId ? { device_id: spDeviceId } : undefined; await spApi('/me/player/previous', 'POST', undefined, q); setTimeout(pollNow, 600); });
+  musNext.addEventListener('click', async () => { const q = spDeviceId ? { device_id: spDeviceId } : undefined; await spApi('/me/player/next', 'POST', undefined, q); setTimeout(pollNow, 600); });
+  let volTimer = null;
+  musVol.addEventListener('input', () => {
+    clearTimeout(volTimer);
+    volTimer = setTimeout(async () => {
+      const q = { volume_percent: musVol.value };
+      if (spDeviceId) q.device_id = spDeviceId;
+      await spApi('/me/player/volume', 'PUT', undefined, q);
+    }, 300);
+  });
+  (async () => {
+    const code = new URLSearchParams(window.location.search).get('code');
+    if (code) await exchangeCode(code);
+    else if (spToken && Date.now() < spTokenExpiry - 60000) await afterLogin();
+    else if (spToken) setStatus('SESSION EXPIRED - LOGIN AGAIN');
+  })();
+
+  // Keyboard navigation (up/down + enter), ESC closes topmost box first
+  let idx = 0;
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+      if (powerOverlay.classList.contains('open')) { closePower(); return; }
+      if (optionsOverlay.classList.contains('open')) { closeOptions(); return; }
+      if (overlay.classList.contains('open')) { closeCredits(); return; }
+      return;
+    }    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      buttons[idx].classList.remove('active');
+      idx = e.key === 'ArrowDown' ? (idx + 1) % buttons.length : (idx - 1 + buttons.length) % buttons.length;
+      buttons[idx].classList.add('active');
+      buttons[idx].focus();
+    }
+    if (e.key === 'Enter') buttons[idx].click();
+  });
+</script>
+</body>
+</html>
