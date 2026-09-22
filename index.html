@@ -533,34 +533,52 @@
     localStorage.setItem('sp_access_token', spToken);
     localStorage.setItem('sp_expiry', String(spTokenExpiry));
     if (j.refresh_token) localStorage.setItem('sp_refresh_token', j.refresh_token);
-    window.history.replaceState({}, '', SPOTIFY_REDIRECT_URI);
+    window.history.replaceState({}, '', window.location.pathname);
     await afterLogin();
   }
   async function refreshToken() {
     const rt = localStorage.getItem('sp_refresh_token');
     if (!rt) return false;
-    const body = new URLSearchParams({ client_id: SPOTIFY_CLIENT_ID, grant_type: 'refresh_token', refresh_token: rt });
-    const r = await fetch('https://accounts.spotify.com/api/token', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body });
-    const j = await r.json();
-    if (!j.access_token) return false;
-    spToken = j.access_token;
-    spTokenExpiry = Date.now() + (j.expires_in * 1000);
-    localStorage.setItem('sp_access_token', spToken);
-    localStorage.setItem('sp_expiry', String(spTokenExpiry));
-    if (j.refresh_token) localStorage.setItem('sp_refresh_token', j.refresh_token);
-    return true;
+    try {
+      const body = new URLSearchParams({ client_id: SPOTIFY_CLIENT_ID, grant_type: 'refresh_token', refresh_token: rt });
+      const r = await fetch('https://accounts.spotify.com/api/token', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body });
+      const j = await r.json();
+      if (!j.access_token) {
+        // refresh token revoked/expired - drop it so we don't retry forever
+        if (j.error === 'invalid_grant') {
+          localStorage.removeItem('sp_access_token');
+          localStorage.removeItem('sp_expiry');
+          localStorage.removeItem('sp_refresh_token');
+          spToken = null;
+          spTokenExpiry = 0;
+        }
+        return false;
+      }
+      spToken = j.access_token;
+      spTokenExpiry = Date.now() + (j.expires_in * 1000);
+      localStorage.setItem('sp_access_token', spToken);
+      localStorage.setItem('sp_expiry', String(spTokenExpiry));
+      if (j.refresh_token) localStorage.setItem('sp_refresh_token', j.refresh_token);
+      return true;
+    } catch(e) { return false; }
   }
   async function ensureToken() {
     if (spToken && Date.now() < spTokenExpiry - 60000) return spToken;
     if (await refreshToken()) return spToken;
     return null;
   }
-  async function spApi(path, method, body, query) {
+  async function spApi(path, method, body, query, retried) {
     const tok = await ensureToken();
-    if (!tok) { setStatus('LOGIN AGAIN'); return null; }
+    if (!tok) { setStatus('NOT LOGGED IN'); updateLoginBtn(); return null; }
     let url = 'https://api.spotify.com/v1' + path;
     if (query) url += '?' + new URLSearchParams(query).toString();
     const r = await fetch(url, { method: method || 'GET', headers: { 'Authorization': 'Bearer ' + tok, 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
+    if (r.status === 401 && !retried) {
+      // token rejected (revoked early) - force one refresh and retry once
+      spTokenExpiry = 0;
+      if (await refreshToken()) return spApi(path, method, body, query, true);
+      setStatus('NOT LOGGED IN'); updateLoginBtn(); return null;
+    }
     if (r.status === 204) return { empty: true };
     if (!r.ok) return { error: r.status };
     try { return await r.json(); } catch(e) { return { empty: true }; }
@@ -603,12 +621,28 @@
     if (spPollTimer) return;
     spPollTimer = setInterval(pollNow, 5000); // display only - never pauses audio
   }
+  function updateLoginBtn() { musLogin.textContent = spToken ? 'LOGOUT' : 'LOGIN SPOTIFY'; }
   async function afterLogin() {
+    updateLoginBtn();
     await refreshDevices();
     await pollNow();
     startPolling();
   }
-  musLogin.addEventListener('click', spotifyLogin);
+  function spotifyLogout() {
+    spToken = null; spTokenExpiry = 0;
+    localStorage.removeItem('sp_access_token');
+    localStorage.removeItem('sp_expiry');
+    localStorage.removeItem('sp_refresh_token');
+    if (spPollTimer) { clearInterval(spPollTimer); spPollTimer = null; }
+    setStatus('NOT LOGGED IN');
+    musTrack.textContent = 'Nothing playing currently';
+    setToggle(false);
+    updateLoginBtn();
+  }
+  musLogin.addEventListener('click', () => {
+    if (spToken) spotifyLogout();
+    else spotifyLogin();
+  });
   const musAlbum = document.getElementById('mus-album');
   musAlbum.addEventListener('click', async () => {
     if (!await ensureToken()) { spotifyLogin(); return; }
@@ -635,10 +669,22 @@
     }, 300);
   });
   (async () => {
-    const code = new URLSearchParams(window.location.search).get('code');
-    if (code) await exchangeCode(code);
-    else if (spToken && Date.now() < spTokenExpiry - 60000) await afterLogin();
-    else if (spToken) setStatus('SESSION EXPIRED - LOGIN AGAIN');
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get('code');
+    const err = params.get('error');
+    if (err) {
+      setStatus('LOGIN FAILED');
+      window.history.replaceState({}, '', window.location.pathname);
+      updateLoginBtn();
+      return;
+    }
+    if (code) { await exchangeCode(code); return; }
+    // No code: try silent restore via refresh token (survives restarts -
+    // access tokens only last 1h, refresh tokens last much longer).
+    if (!spToken && !localStorage.getItem('sp_refresh_token')) { setStatus('NOT LOGGED IN'); updateLoginBtn(); return; }
+    setStatus('RESTORING SESSION...');
+    if (await ensureToken()) await afterLogin();
+    else { spToken = null; setStatus('NOT LOGGED IN'); updateLoginBtn(); }
   })();
 
   // Keyboard navigation (up/down + enter), ESC closes topmost box first
